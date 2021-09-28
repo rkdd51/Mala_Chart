@@ -1,0 +1,127 @@
+<template>
+  <div>
+    <div class="row mt-3">
+      <div class="d-flex justify-content-center align-items-center">
+        <canvas
+          ref="PestDetectionPerCameraPlot"
+          width="300"
+          height="120"
+        ></canvas>
+      </div>
+    </div>
+  </div>
+</template>
+<script>
+import { randomRGBA } from "@/utils/util_fns";
+import Chart from "chart.js/auto";
+
+export default {
+  name: "PestDetectionPerCameraPlot",
+  components: {},
+  props: {
+    raw_data: {
+      type: Array,
+      required: true,
+    },
+    site_names: {
+      type: Object,
+      required: true,
+    },
+    cam_names: {
+      type: Object,
+      required: true,
+    },
+  },
+  data() {
+    return {
+      bgc: [],
+      brc: [],
+      chart_obj: null,
+    };
+  },
+  methods: {
+    genChart: function (lbl, ind_lbls, dsdata, ctx) {
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ind_lbls,
+          datasets: dsdata,
+        },
+        options: {
+          title: {
+            text: lbl,
+            display: true,
+          },
+          responsive: true,
+        },
+      });
+    },
+    composeDataSets: function () {
+      let cam_map = Object.entries(this.cam_names);
+      let species_data = this.raw_data[0];
+
+      let camera_labels = [];
+
+      let species_ds = [];
+
+      cam_map.forEach(([cam_id, cam_name]) => {
+        camera_labels.push(cam_name);
+        species_ds.push(
+          species_data
+            .filter((ele) => ele["camera_id"] == cam_id)
+            .map((ele) => ele["species_count"])
+            .reduce((acc, val) => acc + val, 0)
+        );
+      });
+
+      const ds_annot = {
+        label: "Species Detected",
+        data: species_ds,
+        backgroundColor: this.bgc.reverse(),
+        borderColor: this.brc.reverse(),
+        borderWidth: 1,
+      };
+      return [camera_labels, [ds_annot]];
+    },
+    updateColors: function () {
+      const camCount = this.raw_data[0].length;
+      const RGBVal = 0.3;
+      this.bgc = Array.from({ length: camCount }, () => randomRGBA(RGBVal));
+      this.brc = this.bgc.map((ele) =>
+        ele.replace(RGBVal.toString() + ")", "1)")
+      );
+    },
+    initCharts: function () {
+      if (!!this.chart_obj) this.chart_obj.destroy();
+      this.updateColors();
+
+      var ctx = this.$refs.PestDetectionPerCameraPlot;
+      if (!!ctx) {
+        let the_data = this.composeDataSets();
+        this.chart_obj = this.genChart(
+          "Charted chart",
+          the_data[0],
+          the_data[1],
+          ctx
+        );
+      } else {
+        console.error("No context found!!");
+      }
+    },
+  },
+  computed: {},
+  watch: {
+    raw_data: function (val) {
+      if (val.length > 0) {
+        this.initCharts();
+      }
+    },
+  },
+  mounted() {
+    console.log("Mounted!");
+    this.initCharts();
+  },
+};
+</script>
+<style>
+</style>
